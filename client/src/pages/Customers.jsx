@@ -15,6 +15,8 @@ const initialForm = {
   status: "Active"
 };
 
+const ITEMS_PER_PAGE = 10;
+
 export default function Customers() {
   const [customers, setCustomers] = useState([]);
 
@@ -22,6 +24,10 @@ export default function Customers() {
   const [editingId, setEditingId] = useState("");
 
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [sortField, setSortField] = useState("name");
+  const [sortDirection, setSortDirection] = useState("asc");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -35,6 +41,7 @@ export default function Customers() {
   const loadCustomers = async () => {
     try {
       setLoading(true);
+      setError("");
 
       const response = await api.get("/customers");
 
@@ -61,10 +68,40 @@ export default function Customers() {
     loadCustomers();
   }, []);
 
-  const filteredCustomers = useMemo(() => {
-    const query = search.toLowerCase();
+  const validateForm = () => {
+    const name = form.name.trim();
+    const email = form.email.trim();
+    const phone = form.phone.trim();
 
-    return customers.filter((customer) => {
+    if (!name || !email || !phone) {
+      return "Name, email and phone are required.";
+    }
+
+    if (name.length < 2 || name.length > 100) {
+      return "Name must be between 2 and 100 characters.";
+    }
+
+    const emailPattern =
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailPattern.test(email)) {
+      return "Please enter a valid email address.";
+    }
+
+    const phonePattern =
+      /^[0-9+\-\s()]{7,20}$/;
+
+    if (!phonePattern.test(phone)) {
+      return "Please enter a valid phone number.";
+    }
+
+    return "";
+  };
+
+  const filteredAndSortedCustomers = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    const filtered = customers.filter((customer) => {
       const text = [
         customer.name,
         customer.email,
@@ -78,9 +115,72 @@ export default function Customers() {
         .join(" ")
         .toLowerCase();
 
-      return text.includes(query);
+      const matchesSearch = text.includes(query);
+
+      const matchesStatus =
+        statusFilter === "All" ||
+        customer.status === statusFilter;
+
+      return matchesSearch && matchesStatus;
     });
-  }, [customers, search]);
+
+    return [...filtered].sort((a, b) => {
+      const first = String(
+        a[sortField] || ""
+      ).toLowerCase();
+
+      const second = String(
+        b[sortField] || ""
+      ).toLowerCase();
+
+      if (first < second) {
+        return sortDirection === "asc" ? -1 : 1;
+      }
+
+      if (first > second) {
+        return sortDirection === "asc" ? 1 : -1;
+      }
+
+      return 0;
+    });
+  }, [
+    customers,
+    search,
+    statusFilter,
+    sortField,
+    sortDirection
+  ]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(
+      filteredAndSortedCustomers.length /
+        ITEMS_PER_PAGE
+    )
+  );
+
+  const paginatedCustomers = useMemo(() => {
+    const startIndex =
+      (currentPage - 1) * ITEMS_PER_PAGE;
+
+    return filteredAndSortedCustomers.slice(
+      startIndex,
+      startIndex + ITEMS_PER_PAGE
+    );
+  }, [
+    filteredAndSortedCustomers,
+    currentPage
+  ]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -97,27 +197,45 @@ export default function Customers() {
     setError("");
     setSuccess("");
 
-    if (!form.name || !form.email || !form.phone) {
-      setError(
-        "Name, email and phone are required."
-      );
+    const validationError = validateForm();
+
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
     try {
       setSaving(true);
 
+      const payload = {
+        ...form,
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
+        phone: form.phone.trim(),
+        company: form.company.trim(),
+        address: form.address.trim(),
+        city: form.city.trim(),
+        state: form.state.trim()
+      };
+
       if (editingId) {
         await api.put(
           `/customers/${editingId}`,
-          form
+          payload
         );
 
-        setSuccess("Customer updated successfully.");
+        setSuccess(
+          "Customer updated successfully."
+        );
       } else {
-        await api.post("/customers", form);
+        await api.post(
+          "/customers",
+          payload
+        );
 
-        setSuccess("Customer created successfully.");
+        setSuccess(
+          "Customer created successfully."
+        );
       }
 
       setForm(initialForm);
@@ -150,6 +268,9 @@ export default function Customers() {
       status: customer.status || "Active"
     });
 
+    setError("");
+    setSuccess("");
+
     window.scrollTo({
       top: 0,
       behavior: "smooth"
@@ -162,6 +283,9 @@ export default function Customers() {
     }
 
     try {
+      setError("");
+      setSuccess("");
+
       await api.delete(`/customers/${id}`);
 
       setSuccess(
@@ -182,6 +306,30 @@ export default function Customers() {
   const cancelEdit = () => {
     setEditingId("");
     setForm(initialForm);
+    setError("");
+  };
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection((previous) =>
+        previous === "asc"
+          ? "desc"
+          : "asc"
+      );
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const getSortIcon = (field) => {
+    if (sortField !== field) {
+      return "";
+    }
+
+    return sortDirection === "asc"
+      ? " ↑"
+      : " ↓";
   };
 
   return (
@@ -189,6 +337,7 @@ export default function Customers() {
       <div className="page-header">
         <div>
           <h2>Customers</h2>
+
           <p>
             Manage customer records.
           </p>
@@ -226,6 +375,8 @@ export default function Customers() {
                 className="form-control"
                 value={form.name}
                 onChange={handleChange}
+                minLength="2"
+                maxLength="100"
                 required
               />
             </div>
@@ -251,6 +402,7 @@ export default function Customers() {
               </label>
 
               <input
+                type="tel"
                 name="phone"
                 className="form-control"
                 value={form.phone}
@@ -335,6 +487,7 @@ export default function Customers() {
 
           <div className="mt-3 d-flex gap-2">
             <button
+              type="submit"
               className="btn btn-primary"
               disabled={saving}
             >
@@ -362,14 +515,38 @@ export default function Customers() {
         <div className="table-toolbar">
           <h5>Customer List</h5>
 
-          <input
-            className="form-control search-input"
-            placeholder="Search customers..."
-            value={search}
-            onChange={(event) =>
-              setSearch(event.target.value)
-            }
-          />
+          <div className="d-flex gap-2 flex-wrap">
+            <input
+              className="form-control search-input"
+              placeholder="Search customers..."
+              value={search}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
+            />
+
+            <select
+              className="form-select"
+              value={statusFilter}
+              onChange={(event) =>
+                setStatusFilter(
+                  event.target.value
+                )
+              }
+            >
+              <option value="All">
+                All Statuses
+              </option>
+
+              <option value="Active">
+                Active
+              </option>
+
+              <option value="Inactive">
+                Inactive
+              </option>
+            </select>
+          </div>
         </div>
 
         {loading ? (
@@ -379,17 +556,55 @@ export default function Customers() {
             <table className="table table-hover align-middle">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Email</th>
+                  <th>
+                    <button
+                      type="button"
+                      className="btn btn-link p-0 text-decoration-none fw-bold"
+                      onClick={() =>
+                        handleSort("name")
+                      }
+                    >
+                      Name
+                      {getSortIcon("name")}
+                    </button>
+                  </th>
+
+                  <th>
+                    <button
+                      type="button"
+                      className="btn btn-link p-0 text-decoration-none fw-bold"
+                      onClick={() =>
+                        handleSort("email")
+                      }
+                    >
+                      Email
+                      {getSortIcon("email")}
+                    </button>
+                  </th>
+
                   <th>Phone</th>
-                  <th>Company</th>
+
+                  <th>
+                    <button
+                      type="button"
+                      className="btn btn-link p-0 text-decoration-none fw-bold"
+                      onClick={() =>
+                        handleSort("company")
+                      }
+                    >
+                      Company
+                      {getSortIcon("company")}
+                    </button>
+                  </th>
+
                   <th>Status</th>
+
                   <th>Actions</th>
                 </tr>
               </thead>
 
               <tbody>
-                {filteredCustomers.map(
+                {paginatedCustomers.map(
                   (customer) => {
                     const id = getId(customer);
 
@@ -420,15 +635,19 @@ export default function Customers() {
                         <td>
                           <div className="d-flex gap-2">
                             <button
+                              type="button"
                               className="btn btn-sm btn-outline-primary"
                               onClick={() =>
-                                handleEdit(customer)
+                                handleEdit(
+                                  customer
+                                )
                               }
                             >
                               Edit
                             </button>
 
                             <button
+                              type="button"
                               className="btn btn-sm btn-outline-danger"
                               onClick={() =>
                                 handleDelete(id)
@@ -445,9 +664,68 @@ export default function Customers() {
               </tbody>
             </table>
 
-            {!filteredCustomers.length && (
+            {!filteredAndSortedCustomers.length && (
               <div className="empty-state">
                 No customers found.
+              </div>
+            )}
+
+            {filteredAndSortedCustomers.length > 0 && (
+              <div className="d-flex justify-content-between align-items-center p-3 border-top">
+                <span className="text-muted">
+                  Showing{" "}
+                  {Math.min(
+                    (currentPage - 1) *
+                      ITEMS_PER_PAGE +
+                      1,
+                    filteredAndSortedCustomers.length
+                  )}{" "}
+                  to{" "}
+                  {Math.min(
+                    currentPage *
+                      ITEMS_PER_PAGE,
+                    filteredAndSortedCustomers.length
+                  )}{" "}
+                  of{" "}
+                  {filteredAndSortedCustomers.length}
+                </span>
+
+                <div className="d-flex gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    disabled={currentPage === 1}
+                    onClick={() =>
+                      setCurrentPage(
+                        (previous) =>
+                          previous - 1
+                      )
+                    }
+                  >
+                    Previous
+                  </button>
+
+                  <span className="px-2 py-1">
+                    Page {currentPage} of{" "}
+                    {totalPages}
+                  </span>
+
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    disabled={
+                      currentPage === totalPages
+                    }
+                    onClick={() =>
+                      setCurrentPage(
+                        (previous) =>
+                          previous + 1
+                      )
+                    }
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             )}
           </div>

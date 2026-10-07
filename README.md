@@ -1,62 +1,49 @@
 # Acxiom CRM
 
-A full-stack Customer Relationship Management (CRM) application for managing customers, leads, opportunities, follow-ups, activities, users, and sales reporting.
+A full-stack Customer Relationship Management (CRM) application designed for managing customers, leads, opportunities, follow-ups, activities, user access, and sales reporting through a secure web platform.
 
-## Tech Stack
+---
+
+## 🛠️ Tech Stack
 
 ### Frontend
-- React
-- Vite
-- React Router
-- Axios
-- Bootstrap
-- Chart.js
+- **Framework & Tooling:** React.js, Vite, React Router DOM
+- **HTTP Client:** Axios
+- **UI & Visualization:** Bootstrap, Chart.js
 
 ### Backend
-- Node.js
-- Express.js
-- MongoDB
-- Mongoose
-- JWT
-- bcryptjs
-- Joi
-- Helmet
-- CORS
-- Express Rate Limit
+- **Runtime & Framework:** Node.js, Express.js
+- **Database & ODM:** MongoDB, Mongoose
+- **Authentication & Encryption:** JSON Web Tokens (JWT), `bcryptjs`
+- **Validation & Security:** Joi, Helmet, CORS, Express Rate Limit
 
-## Features
+---
 
-- JWT authentication
-- Password hashing and validation
-- Login attempt tracking and account lockout
-- Role-based access control
-- Admin, Manager, and Sales Executive roles
-- Customer CRUD
-- Customer search, filtering, sorting, and pagination
-- Lead CRUD and status management
-- Lead-to-customer conversion
-- Opportunity management and sales pipeline
-- Weighted pipeline calculation
-- Follow-up management
-- Activity management
-- Audit logging
-- Dashboard KPIs and charts
-- REST APIs
-- Client-side and server-side validation
-- API security and rate limiting
+## 🚀 Features
 
-## Roles
+- **Authentication & Session Guard:** JWT authentication, password hashing, login attempt tracking, and account lockout.
+- **Role-Based Access Control (RBAC):** Admin, Manager, and Sales Executive granular access levels.
+- **Customer Management:** Full CRUD operations with search, multi-field filtering, sorting, and server-side pagination.
+- **Lead Pipeline:** Lead lifecycle management and seamless lead-to-customer conversion.
+- **Opportunity & Pipeline Tracking:** Weighted pipeline calculations, deal stage tracking, and probability metrics.
+- **Follow-up & Activity Logging:** Task scheduling, interaction tracking, and activity history.
+- **Audit Logging:** System-wide audit trail recording user actions and state changes.
+- **Dashboard & Analytics:** KPI cards, interactive charts (Lead Status, Pipeline Stages, Monthly Sales).
+- **Security & Rate Limiting:** Request rate limiting, payload validation, query sanitization, and security HTTP headers.
 
-### Admin
-Full system access including user management, roles, audit logs, CRM records, dashboard, and reports.
+---
 
-### Manager
-Access to team CRM data, opportunities, follow-ups, dashboard, and reports according to authorization rules.
+## 👥 Role Definitions
 
-### Sales Executive
-Access to assigned CRM records and permitted sales operations.
+| Role | Access Level & Permissions |
+| :--- | :--- |
+| **Admin** | Full system access including user management, role assignments, system audit logs, all CRM records, company-wide dashboards, and reports. |
+| **Manager** | Access to team CRM data, managed opportunities, team follow-ups, aggregate dashboard metrics, and sales reporting. |
+| **Sales Executive** | Access restricted to assigned CRM records, customer leads, own sales opportunities, and permitted sales tasks. |
 
-## Project Structure
+---
+
+## 📁 Project Structure
 
 ```text
 AcxiomCRM/
@@ -82,154 +69,183 @@ AcxiomCRM/
     ├── app.js
     ├── server.js
     └── package.json
+```
 
-    Main Modules
-Authentication
-Dashboard
-Customers
-Leads
-Opportunities
-Follow-ups
-Activities
-Users & Roles
-Audit Logs
-Reports
-REST API
-Security
-JWT authentication
-bcrypt password hashing
-Role-based authorization
-Ownership checks
-Joi server-side validation
-Client-side validation
-Helmet security headers
-CORS configuration
-API rate limiting
-MongoDB/Mongoose query sanitization
-Account lockout
-Audit logging
-Sensitive authentication data excluded from API responses
-Dashboard
+---
 
-The dashboard provides:
+## 📦 Main Modules
 
-Total Customers
-Total Leads
-Open Leads
-Total Opportunities
-Open Opportunities
-Won Opportunities
-Lost Opportunities
-Total Pipeline Value
-Lead Status chart
-Opportunity Pipeline chart
-Monthly Sales chart
-Opportunity Pipeline
+1. **Authentication:** Registration, login, password security, session validation, and account lockout.
+2. **Dashboard:** KPI summary metrics and visual chart analytics.
+3. **Customers:** Database of clients, search, status, and detail management.
+4. **Leads:** Prospect pipeline tracking and conversion workflow.
+5. **Opportunities:** Sales deals with probability metrics and value estimation.
+6. **Follow-ups:** Scheduled reminders and task interactions.
+7. **Activities:** Logs of calls, meetings, emails, and notes.
+8. **Users & Roles:** Access rights and team structure management.
+9. **Audit Logs:** Immutable activity tracking for system accountability.
+10. **Reports:** Revenue forecasts and historical sales trends.
 
-Weighted pipeline value is calculated as:
+---
 
-Weighted Value = Amount × Probability / 100
-Business rules include:
+## 🛡️ Security Measures
 
-Amount must be greater than 0
-Probability must be between 0 and 100
-Active opportunities cannot have a past expected close date
-Follow-up dates cannot be earlier than today
+- **JWT Authentication:** Stateless security via signed token headers.
+- **Bcrypt Password Hashing:** Password encryption with salt rounds before database persistence.
+- **Role-Based Authorization:** Middleware guards enforcing endpoint accessibility by user role.
+- **Ownership Verification:** Access controls ensuring Executives access only assigned records.
+- **Request Validation:** Joi schemas validating incoming payload structures on backend endpoints.
+- **Sanitization & Headers:** Helmet HTTP headers protection and MongoDB query sanitization.
+- **Rate Limiting:** IP-based request throttling (`express-rate-limit`).
+- **Account Lockout:** Automatic temporal account suspension after consecutive failed login attempts.
+- **Audit Logging:** Timestamped activity history recording modifications and critical actions.
 
-API
+---
 
-Example endpoints:
+## 📊 Dashboard & Metrics
 
-POST   /api/auth/login
-POST   /api/auth/logout
+The application dashboard provides instant visibility into core operational metrics:
 
-GET    /api/customers
-POST   /api/customers
-PUT    /api/customers/:id
-DELETE /api/customers/:id
+- **KPI Summaries:** Total Customers, Total Leads, Open Leads, Total Opportunities, Open Opportunities, Won Opportunities, Lost Opportunities, and Total Pipeline Value.
+- **Visual Analytics:**
+  - Lead Status Distribution Chart
+  - Opportunity Pipeline Stage Chart
+  - Monthly Sales & Conversion Trends Chart
 
-GET    /api/leads
-POST   /api/leads
+---
 
-GET    /api/opportunities
-POST   /api/opportunities
+## 💰 Opportunity Pipeline Rules
 
-GET    /api/followups
-POST   /api/followups
+The weighted value of an opportunity is calculated as:
 
-GET    /api/activities
-POST   /api/activities
+$$\text{Weighted Value} = \frac{\text{Amount} \times \text{Probability}}{100}$$
 
-GET    /api/dashboard/stats
-GET    /api/reports/monthly-sales
+### Business Rules:
+- **Opportunity Amount:** Must be greater than 0 (`Amount > 0`).
+- **Probability Rate:** Must be an integer between 0 and 100 ($0 \le \text{Probability} \le 100$).
+- **Expected Close Date:** Active opportunities cannot have an expected close date in the past.
+- **Follow-up Date:** Follow-up scheduled dates cannot be set prior to the current date.
 
-GET    /api/users
-POST   /api/users
+---
 
-GET    /api/audit
-Protected API requests use JWT authentication:
+## 🔗 API Endpoints Overview
 
-Authorization: Bearer <JWT_TOKEN>
-Environment Variables
+All protected requests require an HTTP Authorization header:
+`Authorization: Bearer <JWT_TOKEN>`
 
-Create server/.env:
+### Authentication (`/api/auth`)
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/auth/login` | Authenticate user and issue JWT token |
+| `POST` | `/api/auth/logout` | Invalidate/logout user session |
 
+### Customers (`/api/customers`)
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/customers` | Fetch all customers (supports query params for search, filter, sort, page) |
+| `POST` | `/api/customers` | Create a new customer record |
+| `PUT` | `/api/customers/:id` | Update customer record |
+| `DELETE` | `/api/customers/:id` | Delete customer record |
+
+### Leads (`/api/leads`)
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/leads` | Fetch all sales leads |
+| `POST` | `/api/leads` | Create a new lead |
+
+### Opportunities (`/api/opportunities`)
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/opportunities` | Fetch sales pipeline opportunities |
+| `POST` | `/api/opportunities` | Create a new opportunity |
+
+### Follow-ups & Activities
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/followups` | Retrieve scheduled follow-ups |
+| `POST` | `/api/followups` | Schedule a follow-up action |
+| `GET` | `/api/activities` | Fetch logged CRM activities |
+| `POST` | `/api/activities` | Log a new interaction/activity |
+
+### Dashboard, System & Management
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/dashboard/stats` | Retrieve aggregated KPI numbers and chart analytics |
+| `GET` | `/api/reports/monthly-sales` | Generate monthly sales performance metrics |
+| `GET` | `/api/users` | List system users (Admin/Manager) |
+| `POST` | `/api/users` | Create user account |
+| `GET` | `/api/audit` | Retrieve system audit logs (Admin only) |
+
+---
+
+## ⚙️ Environment Variables
+
+Create a `.env` file in the `server/` directory:
+
+```env
 PORT=5050
-MONGO_URI=YOUR_MONGODB_ATLAS_CONNECTION_STRING
-JWT_SECRET=YOUR_SECRET_KEY
+MONGO_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/acxiom_crm
+JWT_SECRET=your_jwt_secret_key_here
 CLIENT_URL=http://localhost:5173
+```
 
-Do not commit .env to GitHub.
+---
 
-Installation
-Backend
+## 🛠️ Installation & Setup
+
+### 1. Prerequisites
+- Node.js (v16 or higher)
+- npm or yarn
+- MongoDB Atlas database connection string
+
+### 2. Backend Setup
+```bash
 cd server
 npm install
 npm run dev
+```
+The backend API server will start on `http://localhost:5050`.
 
-Backend:
-
-http://localhost:5050
-Frontend
-
-Open another terminal:
-
+### 3. Frontend Setup
+Open a new terminal window:
+```bash
 cd client
 npm install
 npm run dev
+```
+The client application will run on `http://localhost:5173`.
 
-Frontend:
+---
 
-http://localhost:5173
-Database
+## 🗄️ Database Collections
 
-MongoDB Atlas is used as the database.
+The database utilizes MongoDB Atlas with Mongoose models for the following collections:
 
-Main collections:
+- `Users`
+- `Customers`
+- `Leads`
+- `Opportunities`
+- `FollowUps`
+- `Activities`
+- `AuditLogs`
 
-Users
-Customers
-Leads
-Opportunities
-FollowUps
-Activities
-AuditLogs
-Validation
+---
 
-Validation is implemented on both frontend and backend.
+## 🔍 Validation Checklist
 
-Examples:
+Dual-layer validation (client-side form guards & backend Joi schemas) ensures strict data integrity:
 
-Required fields
-Valid email
-Valid phone
-Duplicate customer prevention
-Password requirements
-Opportunity amount
-Opportunity probability
-Opportunity close date
-Follow-up date
-Role and ownership authorization
-License
+- Required field verification
+- Valid email format and phone number syntax
+- Duplicate customer and lead detection
+- Password strength criteria
+- Positive value enforcement on opportunity amounts
+- Probability bounds enforcement ($0 - 100$)
+- Date constraints (close dates and follow-up schedules in future/present)
+- Role and ownership authorization checks
+
+---
+
+## 📄 License
 
 Developed as part of the Acxiom CRM project evaluation.
