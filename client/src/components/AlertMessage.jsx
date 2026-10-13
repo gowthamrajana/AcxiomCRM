@@ -1,11 +1,22 @@
-export default function Loading({ text = "Loading..." }) {
-  return (
-    <div className="loading-container">
-      <div className="spinner-border text-primary" role="status">
-        <span className="visually-hidden">Loading...</span>
-      </div>
 
-      <span>{text}</span>
+export default function AlertMessage({ message, type = "danger", onClose }) {
+  if (!message) return null;
+
+  return (
+    <div
+      className={`alert alert-${type} alert-dismissible fade show`}
+      role="alert"
+    >
+      {message}
+
+      {onClose && (
+        <button
+          type="button"
+          className="btn-close"
+          aria-label="Close"
+          onClick={onClose}
+        />
+      )}
     </div>
   );
 }
