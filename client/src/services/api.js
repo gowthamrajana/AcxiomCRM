@@ -4,6 +4,10 @@ const api = axios.create({
   baseURL: "http://localhost:5050/api",
   headers: {
     "Content-Type": "application/json"
+  },
+  // Fix: Treat HTTP 304 Not Modified as a successful response so Axios doesn't reject it
+  validateStatus: function (status) {
+    return (status >= 200 && status < 300) || status === 304;
   }
 });
 

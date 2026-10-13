@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+
+import { useCallback, useEffect, useState } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -7,7 +8,6 @@ import {
   LineElement,
   PointElement,
   ArcElement,
-  Title,
   Tooltip,
   Legend
 } from "chart.js";
@@ -24,7 +24,6 @@ ChartJS.register(
   LineElement,
   PointElement,
   ArcElement,
-  Title,
   Tooltip,
   Legend
 );
@@ -34,62 +33,59 @@ export default function Dashboard() {
   const [pipeline, setPipeline] = useState([]);
   const [monthlySales, setMonthlySales] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [sectionErrors, setSectionErrors] = useState([]);
 
-  const loadDashboard = async () => {
-    try {
+  const loadDashboard = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
       setLoading(true);
-      setError("");
-
-      const [
-        statsResponse,
-        pipelineResponse,
-        salesResponse
-      ] = await Promise.all([
-        api.get("/dashboard/stats"),
-        api.get("/opportunities/pipeline"),
-        api.get("/reports/monthly-sales")
-      ]);
-
-      setStats(
-        statsResponse.data?.data ||
-        statsResponse.data ||
-        {}
-      );
-
-      const pipelineData =
-        pipelineResponse.data?.data ||
-        pipelineResponse.data?.pipeline ||
-        pipelineResponse.data ||
-        [];
-
-      setPipeline(
-        Array.isArray(pipelineData)
-          ? pipelineData
-          : []
-      );
-
-      const salesData =
-        salesResponse.data?.data ||
-        salesResponse.data?.sales ||
-        salesResponse.data ||
-        [];
-
-      setMonthlySales(
-        Array.isArray(salesData)
-          ? salesData
-          : []
-      );
-    } catch (error) {
-      setError(getApiError(error));
-    } finally {
-      setLoading(false);
     }
-  };
+
+    setError("");
+    setSectionErrors([]);
+
+    const results = await Promise.allSettled([
+      api.get("/dashboard/stats"),
+      api.get("/opportunities/pipeline"),
+      api.get("/reports/monthly-sales")
+    ]);
+
+    const errors = [];
+
+    if (results[0].status === "fulfilled") {
+      const data = results[0].value.data;
+      setStats(data?.data ?? data ?? {});
+    } else {
+      errors.push(`Dashboard statistics: ${getApiError(results[0].reason)}`);
+    }
+
+    if (results[1].status === "fulfilled") {
+      const data = results[1].value.data;
+      const value = data?.data ?? data?.pipeline ?? data ?? [];
+      setPipeline(Array.isArray(value) ? value : []);
+    } else {
+      errors.push(`Opportunity pipeline: ${getApiError(results[1].reason)}`);
+    }
+
+    if (results[2].status === "fulfilled") {
+      const data = results[2].value.data;
+      const value = data?.data ?? data?.sales ?? data ?? [];
+      setMonthlySales(Array.isArray(value) ? value : []);
+    } else {
+      errors.push(`Monthly sales: ${getApiError(results[2].reason)}`);
+    }
+
+    setSectionErrors(errors);
+    setLoading(false);
+    setRefreshing(false);
+  }, []);
 
   useEffect(() => {
     loadDashboard();
-  }, []);
+  }, [loadDashboard]);
 
   if (loading) {
     return <Loading />;
@@ -97,53 +93,17 @@ export default function Dashboard() {
 
   const dashboardStats = stats || {};
 
-  const totalCustomers =
-    dashboardStats.totalCustomers ??
-    dashboardStats.customers ??
-    0;
-
-  const totalLeads =
-    dashboardStats.totalLeads ??
-    dashboardStats.leads ??
-    0;
-
-  const openLeads =
-    dashboardStats.openLeads ??
-    0;
-
-  const totalOpportunities =
-    dashboardStats.totalOpportunities ??
-    dashboardStats.opportunities ??
-    0;
-
-  const openOpportunities =
-    dashboardStats.openOpportunities ??
-    0;
-
-  const wonOpportunities =
-    dashboardStats.wonOpportunities ??
-    dashboardStats.won ??
-    0;
-
-  const lostOpportunities =
-    dashboardStats.lostOpportunities ??
-    dashboardStats.lost ??
-    0;
-
-  const totalPipelineValue =
-    dashboardStats.totalPipelineValue ??
-    dashboardStats.pipelineValue ??
-    0;
+  const totalCustomers = dashboardStats.totalCustomers ?? dashboardStats.customers ?? 0;
+  const totalLeads = dashboardStats.totalLeads ?? dashboardStats.leads ?? 0;
+  const openLeads = dashboardStats.openLeads ?? 0;
+  const totalOpportunities = dashboardStats.totalOpportunities ?? dashboardStats.opportunities ?? 0;
+  const openOpportunities = dashboardStats.openOpportunities ?? 0;
+  const wonOpportunities = dashboardStats.wonOpportunities ?? dashboardStats.won ?? 0;
+  const lostOpportunities = dashboardStats.lostOpportunities ?? dashboardStats.lost ?? 0;
+  const totalPipelineValue = dashboardStats.totalPipelineValue ?? dashboardStats.pipelineValue ?? 0;
 
   const leadStatusData = {
-    labels: [
-      "New",
-      "Contacted",
-      "Qualified",
-      "Unqualified",
-      "Converted",
-      "Lost"
-    ],
+    labels: ["New", "Contacted", "Qualified", "Unqualified", "Converted", "Lost"],
     datasets: [
       {
         label: "Leads",
@@ -160,98 +120,42 @@ export default function Dashboard() {
   };
 
   const pipelineLabels = pipeline.map(
-    (item) =>
-      item.stage ||
-      item._id ||
-      item.name ||
-      "Unknown"
+    (item) => item.stage || item._id || item.name || "Unknown"
   );
 
   const pipelineValues = pipeline.map(
-    (item) =>
-      Number(
-        item.value ??
-        item.amount ??
-        item.totalAmount ??
-        item.total ??
-        0
-      )
+    (item) => Number(item.value ?? item.amount ?? item.totalAmount ?? item.total ?? 0)
   );
 
   const pipelineChartData = {
     labels: pipelineLabels,
-    datasets: [
-      {
-        label: "Pipeline Value",
-        data: pipelineValues
-      }
-    ]
+    datasets: [{ label: "Pipeline Value", data: pipelineValues }]
   };
 
   const salesLabels = monthlySales.map(
-    (item) =>
-      item.month ||
-      item.label ||
-      item._id ||
-      "Unknown"
+    (item) => item.month || item.label || item._id || "Unknown"
   );
 
   const salesValues = monthlySales.map(
-    (item) =>
-      Number(
-        item.sales ??
-        item.totalSales ??
-        item.amount ??
-        item.total ??
-        0
-      )
+    (item) => Number(item.sales ?? item.totalSales ?? item.amount ?? item.total ?? 0)
   );
 
   const monthlySalesChartData = {
     labels: salesLabels,
-    datasets: [
-      {
-        label: "Monthly Sales",
-        data: salesValues,
-        tension: 0.3
-      }
-    ]
+    datasets: [{ label: "Monthly Sales", data: salesValues, tension: 0.3 }]
   };
 
   const cards = [
-    {
-      title: "Total Customers",
-      value: totalCustomers
-    },
-    {
-      title: "Total Leads",
-      value: totalLeads
-    },
-    {
-      title: "Open Leads",
-      value: openLeads
-    },
-    {
-      title: "Total Opportunities",
-      value: totalOpportunities
-    },
-    {
-      title: "Open Opportunities",
-      value: openOpportunities
-    },
-    {
-      title: "Won Opportunities",
-      value: wonOpportunities
-    },
-    {
-      title: "Lost Opportunities",
-      value: lostOpportunities
-    },
+    { title: "Total Customers", value: totalCustomers },
+    { title: "Total Leads", value: totalLeads },
+    { title: "Open Leads", value: openLeads },
+    { title: "Total Opportunities", value: totalOpportunities },
+    { title: "Open Opportunities", value: openOpportunities },
+    { title: "Won Opportunities", value: wonOpportunities },
+    { title: "Lost Opportunities", value: lostOpportunities },
     {
       title: "Total Pipeline Value",
-      value: `₹${Number(
-        totalPipelineValue
-      ).toLocaleString("en-IN")}`
+      value: `₹${Number(totalPipelineValue).toLocaleString("en-IN")}`
     }
   ];
 
@@ -259,44 +163,45 @@ export default function Dashboard() {
     <div className="container-fluid">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
-          <h1 className="fw-bold mb-1">
-            Dashboard
-          </h1>
-
-          <p className="text-muted mb-0">
-            CRM overview and sales performance
-          </p>
+          <h1 className="fw-bold mb-1">Dashboard</h1>
+          <p className="text-muted mb-0">CRM overview and sales performance</p>
         </div>
 
         <button
           className="btn btn-outline-primary"
-          onClick={loadDashboard}
+          onClick={() => loadDashboard(true)}
+          disabled={refreshing}
         >
-          Refresh
+          {refreshing ? "Refreshing..." : "Refresh"}
         </button>
       </div>
 
-      <AlertMessage
-        message={error}
-        type="danger"
-        onClose={() => setError("")}
-      />
+      {error && (
+        <AlertMessage
+          message={error}
+          type="danger"
+          onClose={() => setError("")}
+        />
+      )}
+
+      {sectionErrors.length > 0 && (
+        <div className="alert alert-warning" role="alert">
+          <strong>Some dashboard sections could not load:</strong>
+          <ul className="mb-0 mt-2">
+            {sectionErrors.map((message) => (
+              <li key={message}>{message}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="row g-4 mb-4">
         {cards.map((card) => (
-          <div
-            className="col-12 col-sm-6 col-lg-3"
-            key={card.title}
-          >
+          <div className="col-12 col-sm-6 col-lg-3" key={card.title}>
             <div className="card h-100 shadow-sm border-0">
               <div className="card-body">
-                <p className="text-muted mb-2">
-                  {card.title}
-                </p>
-
-                <h2 className="fw-bold mb-0">
-                  {card.value}
-                </h2>
+                <p className="text-muted mb-2">{card.title}</p>
+                <h2 className="fw-bold mb-0">{card.value}</h2>
               </div>
             </div>
           </div>
@@ -307,21 +212,14 @@ export default function Dashboard() {
         <div className="col-12 col-lg-6">
           <div className="card shadow-sm border-0 h-100">
             <div className="card-body">
-              <h5 className="fw-bold mb-4">
-                Lead Status
-              </h5>
-
+              <h5 className="fw-bold mb-4">Lead Status</h5>
               <div style={{ height: "320px" }}>
                 <Bar
                   data={leadStatusData}
                   options={{
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                      legend: {
-                        display: false
-                      }
-                    }
+                    plugins: { legend: { display: false } }
                   }}
                 />
               </div>
@@ -332,18 +230,12 @@ export default function Dashboard() {
         <div className="col-12 col-lg-6">
           <div className="card shadow-sm border-0 h-100">
             <div className="card-body">
-              <h5 className="fw-bold mb-4">
-                Opportunity Pipeline
-              </h5>
-
+              <h5 className="fw-bold mb-4">Opportunity Pipeline</h5>
               <div style={{ height: "320px" }}>
                 {pipeline.length > 0 ? (
                   <Doughnut
                     data={pipelineChartData}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false
-                    }}
+                    options={{ responsive: true, maintainAspectRatio: false }}
                   />
                 ) : (
                   <div className="text-center text-muted py-5">
@@ -358,10 +250,7 @@ export default function Dashboard() {
         <div className="col-12">
           <div className="card shadow-sm border-0">
             <div className="card-body">
-              <h5 className="fw-bold mb-4">
-                Monthly Sales
-              </h5>
-
+              <h5 className="fw-bold mb-4">Monthly Sales</h5>
               <div style={{ height: "350px" }}>
                 {monthlySales.length > 0 ? (
                   <Line
@@ -369,16 +258,8 @@ export default function Dashboard() {
                     options={{
                       responsive: true,
                       maintainAspectRatio: false,
-                      plugins: {
-                        legend: {
-                          display: true
-                        }
-                      },
-                      scales: {
-                        y: {
-                          beginAtZero: true
-                        }
-                      }
+                      plugins: { legend: { display: true } },
+                      scales: { y: { beginAtZero: true } }
                     }}
                   />
                 ) : (

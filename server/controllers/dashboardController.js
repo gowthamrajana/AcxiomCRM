@@ -1,3 +1,4 @@
+
 const Customer = require("../models/Customer");
 const Lead = require("../models/Lead");
 const Opportunity = require("../models/Opportunity");
@@ -7,7 +8,8 @@ const getDashboardStats = async (req, res) => {
     const [
       totalCustomers,
       totalLeads,
-      openLeads,
+      convertedLeads,
+      lostLeads,
       totalOpportunities,
       openOpportunities,
       wonOpportunities,
@@ -15,34 +17,34 @@ const getDashboardStats = async (req, res) => {
     ] = await Promise.all([
       Customer.countDocuments(),
       Lead.countDocuments(),
-      Lead.countDocuments({
-        status: {
-          $nin: ["Converted", "Lost"]
-        }
-      }),
+      Lead.countDocuments({ status: "Converted" }),
+      Lead.countDocuments({ status: "Lost" }),
       Opportunity.countDocuments(),
-      Opportunity.countDocuments({
-        status: "Open"
-      }),
-      Opportunity.countDocuments({
-        status: "Won"
-      }),
-      Opportunity.countDocuments({
-        status: "Lost"
-      })
+      Opportunity.countDocuments({ status: "Open" }),
+      Opportunity.countDocuments({ status: "Won" }),
+      Opportunity.countDocuments({ status: "Lost" })
     ]);
+
+    const openLeads = Math.max(
+      0,
+      totalLeads - convertedLeads - lostLeads
+    );
 
     const openPipeline = await Opportunity.find({
       status: "Open"
     }).select("amount probability");
 
     const totalPipelineValue = openPipeline.reduce(
-      (total, opportunity) =>
-        total + (opportunity.amount * opportunity.probability) / 100,
+      (total, opportunity) => {
+        const amount = Number(opportunity.amount) || 0;
+        const probability = Number(opportunity.probability) || 0;
+
+        return total + (amount * probability) / 100;
+      },
       0
     );
 
-    res.status(200).json({
+    return res.status(200).json({
       totalCustomers,
       totalLeads,
       openLeads,
@@ -53,7 +55,9 @@ const getDashboardStats = async (req, res) => {
       totalPipelineValue
     });
   } catch (error) {
-    res.status(500).json({
+    console.error("Dashboard statistics error:", error);
+
+    return res.status(500).json({
       message: "Failed to fetch dashboard statistics"
     });
   }

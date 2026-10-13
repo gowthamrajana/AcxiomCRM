@@ -1,5 +1,6 @@
 const Customer = require("../models/Customer");
 const createAuditLog = require("../services/auditService");
+const mongoose = require("mongoose");
 
 const createCustomer = async (req, res) => {
   try {
@@ -117,7 +118,9 @@ const updateCustomer = async (req, res) => {
 
     if (req.body.email || req.body.phone) {
       const duplicateFilter = {
-        _id: { $ne: customer._id },
+        _id: mongoose.trusted({
+          $ne: customer._id
+        }),
         $or: []
       };
 
@@ -134,7 +137,14 @@ const updateCustomer = async (req, res) => {
       }
 
       if (duplicateFilter.$or.length > 0) {
+        console.log("Duplicate filter:", JSON.stringify(duplicateFilter));
+        console.log("Before duplicate check");
+        console.log("After duplicate check");
         const duplicate = await Customer.findOne(duplicateFilter);
+        console.log("Updating customer ID:", customer._id.toString());
+        console.log("Duplicate found:", duplicate?._id?.toString() || "None");
+        console.log("Submitted email:", req.body.email);
+        console.log("Submitted phone:", req.body.phone);
 
         if (duplicate) {
           return res.status(409).json({
@@ -143,8 +153,31 @@ const updateCustomer = async (req, res) => {
         }
       }
     }
-
+    console.log("Reached oldValue section");
     const oldValue = customer.toObject();
+    console.log("Reached before save");
+
+    console.log("Step 2: oldValue created");
+
+Object.assign(customer, req.body);
+console.log("After Object.assign");
+console.log("Step 3: Request body assigned");
+
+await customer.save();
+console.log("Step 4: Customer saved");
+
+await createAuditLog({
+  userId: req.user.userId,
+  action: "UPDATE",
+  entityName: "Customer",
+  recordId: customer._id.toString(),
+  oldValue,
+  newValue: customer.toObject(),
+  ipAddress: req.ip
+});
+console.log("Step 5: Audit log created");
+
+res.status(200).json(customer);
 
     Object.assign(customer, req.body);
 
